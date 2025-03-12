@@ -3,7 +3,7 @@
     <div class="container">
       <div class="problems-header">
         <div>
-          <h2>Bouldering Problems</h2>
+          <h3>Bouldering Problems</h3>
           <p class="welcome-message">
             Welcome to the "Pschitt Mur" app for Le Hangar climbing gym in
             Fribourg! Create and share your spray wall boulder problems with the
@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useRouteStore } from "../stores/routeStore";
 
@@ -225,6 +225,7 @@ function refreshProblems() {
   text-decoration: none;
   font-weight: bold;
   white-space: nowrap;
+  font-size: 0.9rem;
 
   @media (max-width: 768px) {
     width: 100%;
@@ -256,6 +257,7 @@ function refreshProblems() {
     border-radius: var(--border-radius);
     text-decoration: none;
     font-weight: bold;
+    font-size: 0.9rem;
   }
 }
 
@@ -300,7 +302,7 @@ function refreshProblems() {
 
     .problem-name {
       margin: 0 0 0.5rem;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
 
     .problem-creator,

@@ -22,9 +22,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import LoginForm from "./components/LoginForm.vue";
+import { onMounted, ref } from "vue";
 import AppFooter from "./components/AppFooter.vue";
+import LoginForm from "./components/LoginForm.vue";
 
 const isAuthenticated = ref(false);
 
@@ -81,7 +81,7 @@ const logout = () => {
 
     h1 {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
     }
 
     .header-subtitle {
@@ -95,7 +95,7 @@ const logout = () => {
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: var(--border-radius);
-    padding: 0.3rem 0.8rem;
+    padding: 0.3rem 0.8rem 0.4rem 0.8rem;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -108,7 +108,6 @@ const logout = () => {
 
 .app-content {
   flex: 1;
-  padding: 1rem;
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;

@@ -2,7 +2,7 @@
   <div class="problem-details">
     <div class="container">
       <div class="page-header">
-        <router-link to="/" class="back-btn"> < Back to Problems </router-link>
+        <router-link to="/" class="back-btn">← Back</router-link>
       </div>
 
       <div v-if="isLoading" class="loading-container">
@@ -12,17 +12,13 @@
 
       <div v-else-if="error" class="error-container">
         <p class="error-message">{{ error }}</p>
-        <router-link to="/" class="btn-primary">
-          < Back to Problems
-        </router-link>
+        <router-link to="/" class="btn-primary">← Back</router-link>
       </div>
 
       <div v-else-if="!route" class="problem-not-found">
         <h2>Problem Not Found</h2>
         <p>The problem you're looking for doesn't exist or has been removed.</p>
-        <router-link to="/" class="btn-primary">
-          < Back to Problems
-        </router-link>
+        <router-link to="/" class="btn-primary">← Back</router-link>
       </div>
 
       <div v-else class="problem-content">
@@ -73,8 +69,8 @@
 <script setup>
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { useRouteStore } from "../stores/routeStore";
 import SprayWall from "../components/SprayWall.vue";
+import { useRouteStore } from "../stores/routeStore";
 
 const props = defineProps({
   id: {
@@ -258,7 +254,7 @@ function confirmDelete() {
 
     .problem-name {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
     }
 
     .problem-grade {
@@ -267,7 +263,7 @@ function confirmDelete() {
       padding: 0.5rem 1rem;
       border-radius: var(--border-radius);
       font-weight: bold;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
     }
   }
 
@@ -288,7 +284,7 @@ function confirmDelete() {
 
     h3 {
       margin: 0 0 1rem;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
 
     .holds-count {
@@ -321,7 +317,7 @@ function confirmDelete() {
       color: white;
       border: none;
       border-radius: var(--border-radius);
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
 
@@ -334,7 +330,6 @@ function confirmDelete() {
 
 .spray-wall-container {
   background-color: white;
-  padding: 1.5rem;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
 }

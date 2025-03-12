@@ -2,8 +2,8 @@
   <div class="create-problem">
     <div class="container">
       <div class="page-header">
-        <h2>Create New Problem</h2>
-        <router-link to="/" class="back-btn"> < Back to Problems </router-link>
+        <h3>Create New Problem</h3>
+        <router-link to="/" class="back-btn">← Back</router-link>
       </div>
 
       <div class="problem-form-container">
@@ -93,10 +93,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useRouteStore } from "../stores/routeStore";
 import SprayWall from "../components/SprayWall.vue";
+import { useRouteStore } from "../stores/routeStore";
 
 const router = useRouter();
 const routeStore = useRouteStore();
@@ -211,6 +211,7 @@ async function saveProblem() {
   border-radius: var(--border-radius);
   text-decoration: none;
   font-weight: bold;
+  font-size: 0.9rem;
 
   &:hover {
     background-color: color.scale(#ecf0f1, $lightness: -5%);
@@ -272,7 +273,7 @@ async function saveProblem() {
       color: white;
       border: none;
       border-radius: var(--border-radius);
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -304,7 +305,6 @@ async function saveProblem() {
 
 .spray-wall-section {
   background-color: white;
-  padding: 1.5rem;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
 }

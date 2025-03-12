@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouteStore } from "../stores/routeStore";
 
 // Props
@@ -172,6 +172,8 @@ onMounted(() => {
 
   &-image {
     display: block;
+    border-radius: var(--border-radius);
+
     width: 100%;
     height: auto;
   }
