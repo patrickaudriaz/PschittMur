@@ -32,7 +32,7 @@ export const useRouteStore = defineStore('problems', () => {
   })
 
   // Actions
-  // Load all problems from the API
+  // Load all problems
   async function loadProblems() {
     isLoading.value = true;
     error.value = null;
@@ -44,9 +44,6 @@ export const useRouteStore = defineStore('problems', () => {
     } catch (err) {
       console.error('Failed to load problems:', err);
       error.value = 'Failed to load problems. Please try again.';
-      
-      // Fallback to localStorage if API fails
-      loadFromLocalStorage();
     } finally {
       isLoading.value = false;
     }
@@ -58,39 +55,17 @@ export const useRouteStore = defineStore('problems', () => {
     error.value = null;
     
     try {
-      const newRoute = {
-        ...route,
-        id: nextId.value,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Save to API
-      const savedRoute = await api.createProblem(newRoute);
+      const savedRoute = await api.createProblem(route);
       
       // Update local state
       routes.value.push(savedRoute);
       nextId.value++;
       
-      // Also save to localStorage as backup
-      saveToLocalStorage();
-      
       return savedRoute.id;
     } catch (err) {
       console.error('Failed to add problem:', err);
       error.value = 'Failed to add problem. Please try again.';
-      
-      // Fallback to localStorage only
-      const newRoute = {
-        ...route,
-        id: nextId.value,
-        createdAt: new Date().toISOString()
-      };
-      
-      routes.value.push(newRoute);
-      nextId.value++;
-      saveToLocalStorage();
-      
-      return newRoute.id;
+      return null;
     } finally {
       isLoading.value = false;
     }
@@ -102,42 +77,18 @@ export const useRouteStore = defineStore('problems', () => {
     error.value = null;
     
     try {
-      const routeToUpdate = {
-        ...updatedRoute,
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Update in API
-      await api.updateProblem(id, routeToUpdate);
+      const updated = await api.updateProblem(id, updatedRoute);
       
       // Update local state
       const index = routes.value.findIndex(route => route.id === parseInt(id));
       if (index !== -1) {
-        routes.value[index] = {
-          ...routes.value[index],
-          ...routeToUpdate
-        };
+        routes.value[index] = updated;
       }
-      
-      // Also update localStorage as backup
-      saveToLocalStorage();
       
       return true;
     } catch (err) {
       console.error(`Failed to update problem ${id}:`, err);
       error.value = 'Failed to update problem. Please try again.';
-      
-      // Fallback to localStorage only
-      const index = routes.value.findIndex(route => route.id === parseInt(id));
-      if (index !== -1) {
-        routes.value[index] = {
-          ...routes.value[index],
-          ...updatedRoute,
-          updatedAt: new Date().toISOString()
-        };
-        saveToLocalStorage();
-        return true;
-      }
       return false;
     } finally {
       isLoading.value = false;
@@ -150,7 +101,6 @@ export const useRouteStore = defineStore('problems', () => {
     error.value = null;
     
     try {
-      // Delete from API
       await api.deleteProblem(id);
       
       // Update local state
@@ -159,62 +109,19 @@ export const useRouteStore = defineStore('problems', () => {
         routes.value.splice(index, 1);
       }
       
-      // Also update localStorage as backup
-      saveToLocalStorage();
-      
       return true;
     } catch (err) {
       console.error(`Failed to delete problem ${id}:`, err);
       error.value = 'Failed to delete problem. Please try again.';
-      
-      // Fallback to localStorage only
-      const index = routes.value.findIndex(route => route.id === parseInt(id));
-      if (index !== -1) {
-        routes.value.splice(index, 1);
-        saveToLocalStorage();
-        return true;
-      }
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // LocalStorage persistence (as backup)
-  function saveToLocalStorage() {
-    localStorage.setItem('pschitt-mur-problems', JSON.stringify({
-      routes: routes.value,
-      nextId: nextId.value
-    }));
-  }
-
-  function loadFromLocalStorage() {
-    // Try to load from the new key first
-    let data = localStorage.getItem('pschitt-mur-problems');
-    
-    // If no data found, try the old key for backward compatibility
-    if (!data) {
-      data = localStorage.getItem('pschitt-mur-routes');
-      
-      // If data found in old key, migrate it to the new key and remove the old one
-      if (data) {
-        localStorage.setItem('pschitt-mur-problems', data);
-        localStorage.removeItem('pschitt-mur-routes');
-      }
-    }
-    
-    if (data) {
-      const parsed = JSON.parse(data);
-      routes.value = parsed.routes;
-      nextId.value = parsed.nextId;
-    }
-  }
-
-  // Initialize: first try to load from API, then fall back to localStorage if needed
+  // Initialize: load problems from localStorage
   function initialize() {
-    loadProblems().catch(() => {
-      loadFromLocalStorage();
-    });
+    loadProblems();
   }
 
   // Call initialize when the store is created

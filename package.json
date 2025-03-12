@@ -6,22 +6,20 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "cd server && node index.js",
-    "start": "concurrently \"npm run server\" \"npm run dev\""
+    "functions": "netlify functions:serve",
+    "dev:all": "concurrently \"npm run dev\" \"npm run functions\""
   },
   "dependencies": {
     "axios": "^1.8.2",
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "mongodb": "^6.14.2",
-    "mongoose": "^8.12.1",
+    "mongodb": "^6.3.0",
+    "netlify-cli": "^17.10.1",
     "pinia": "^2.1.6",
     "vue": "^3.3.4",
     "vue-router": "^4.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.3.4",
-    "concurrently": "^9.1.2",
+    "concurrently": "^8.2.2",
     "sass": "^1.66.1",
     "vite": "^4.4.9"
   }
