@@ -498,7 +498,7 @@ onUnmounted(() => {
 .hold {
   position: absolute;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(0, 0, 0, 0.5);
   background-color: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -603,6 +603,7 @@ onUnmounted(() => {
 
     &:hover {
       transform: translate(-50%, -50%) !important;
+      border: 2px solid rgba(0, 0, 0, 0.5);
     }
 
     &-selected {
