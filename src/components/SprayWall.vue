@@ -6,28 +6,31 @@
         alt="Spray Wall"
         class="spray-wall-image"
         @load="initializeHolds"
+        @click="editMode && handleImageClick($event)"
       />
 
       <!-- Holds overlay -->
       <div
-        v-for="(hold, index) in holds"
+        v-for="(hold, index) in displayHolds"
         :key="index"
         class="hold"
         :class="[
-          { 'hold-selected': isHoldSelected(index) },
+          { 'hold-selected': isHoldSelected(index) && !editMode },
           selectedHoldType(index),
+          { 'hold-edit': editMode },
         ]"
         :style="{
-          left: `${hold.x}px`,
-          top: `${hold.y}px`,
+          left: `${hold.pixelX}px`,
+          top: `${hold.pixelY}px`,
           width: `${hold.size}px`,
           height: `${hold.size}px`,
+          transform: 'translate(-50%, -50%)',
         }"
-        @click="toggleHold(index)"
+        @click.stop="editMode ? removeHold(index) : toggleHold(index)"
       ></div>
     </div>
 
-    <div v-if="selectionMode" class="hold-type-selector">
+    <div v-if="selectionMode && !editMode" class="hold-type-selector">
       <div class="hold-type-title">Select hold type:</div>
       <div class="hold-type-buttons">
         <button
@@ -45,7 +48,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import defaultHoldPositions from "../assets/holdPositions.json";
 import { useRouteStore } from "../stores/routeStore";
 
 // Props
@@ -58,10 +62,22 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  holdPositions: {
+    type: Array,
+    default: () => defaultHoldPositions,
+  },
+  editMode: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Emits
-const emit = defineEmits(["update:selectedHolds"]);
+const emit = defineEmits([
+  "update:selectedHolds",
+  "update:holdPositions",
+  "update:editMode",
+]);
 
 // Store
 const routeStore = useRouteStore();
@@ -70,44 +86,80 @@ const holdTypes = Object.values(routeStore.holdTypes);
 // State
 const sprayWallRef = ref(null);
 const holds = ref([]);
+const displayHolds = ref([]);
 const currentHoldType = ref(routeStore.holdTypes.HAND);
 const sprayWallImage = "/spraywall.jpg";
+const defaultHoldSize = ref(20); // Default size for all holds
+const originalHoldPositions = ref([]); // Store original positions for cancel
+const imageWidth = ref(0);
+const imageHeight = ref(0);
 
-// Hard-coded holds positions (in a real app, these would be stored in a database)
-// These are example positions - you'll need to adjust them based on your actual image
-function initializeHolds() {
-  // Wait for the image to load to get its dimensions
-  const img = sprayWallRef.value.querySelector("img");
-  const imgWidth = img.clientWidth;
-  const imgHeight = img.clientHeight;
+// Watch for changes in props
+watch(
+  () => props.holdPositions,
+  (newPositions) => {
+    if (newPositions && sprayWallRef.value) {
+      holds.value = [...newPositions];
+      updateDisplayHolds();
+    }
+  },
+  { deep: true }
+);
 
-  // Example holds - in a real app, you would map these to the actual holds in your image
-  // For now, we'll create a grid of holds as an example
-  const holdSize = Math.min(imgWidth, imgHeight) * 0.05; // 5% of the image size
-  const rows = 10;
-  const cols = 15;
-  const marginX = imgWidth * 0.1;
-  const marginY = imgHeight * 0.1;
-  const stepX = (imgWidth - 2 * marginX) / (cols - 1);
-  const stepY = (imgHeight - 2 * marginY) / (rows - 1);
-
-  const generatedHolds = [];
-
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      // Add some randomness to make it look more natural
-      const randomOffsetX = (Math.random() - 0.5) * stepX * 0.3;
-      const randomOffsetY = (Math.random() - 0.5) * stepY * 0.3;
-
-      generatedHolds.push({
-        x: marginX + col * stepX + randomOffsetX - holdSize / 2,
-        y: marginY + row * stepY + randomOffsetY - holdSize / 2,
-        size: holdSize,
-      });
+watch(
+  () => props.editMode,
+  (newEditMode) => {
+    if (newEditMode) {
+      // Store original positions when entering edit mode
+      originalHoldPositions.value = JSON.parse(
+        JSON.stringify(props.holdPositions)
+      );
     }
   }
+);
 
-  holds.value = generatedHolds;
+// Update display holds whenever the image size changes
+function updateDisplayHolds() {
+  const img = sprayWallRef.value?.querySelector("img");
+  if (!img) return;
+
+  imageWidth.value = img.clientWidth;
+  imageHeight.value = img.clientHeight;
+
+  // Calculate default hold size based on image dimensions
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.05; // 5% of the image size
+
+  // Convert relative positions to pixel positions for display
+  displayHolds.value = holds.value.map((hold) => ({
+    pixelX: Math.round(hold.x * imageWidth.value),
+    pixelY: Math.round(hold.y * imageHeight.value),
+    size: defaultHoldSize.value,
+    // Keep original relative positions
+    x: hold.x,
+    y: hold.y,
+  }));
+}
+
+// Initialize holds from provided JSON data
+function initializeHolds() {
+  // Wait for the image to load to get its dimensions
+  const img = sprayWallRef.value?.querySelector("img");
+  if (!img) return;
+
+  imageWidth.value = img.clientWidth;
+  imageHeight.value = img.clientHeight;
+
+  // Calculate default hold size based on image dimensions
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.05; // 5% of the image size
+
+  // Store the original hold positions (relative coordinates)
+  holds.value = [...props.holdPositions];
+
+  // Update display holds
+  updateDisplayHolds();
+
+  // Add window resize listener to update hold positions when window size changes
+  window.addEventListener("resize", updateDisplayHolds);
 }
 
 // Check if a hold is selected
@@ -117,12 +169,15 @@ const isHoldSelected = (index) => {
 
 // Get the type of a selected hold
 const selectedHoldType = (index) => {
+  if (props.editMode) return "";
   const hold = props.selectedHolds.find((h) => h.index === index);
   return hold ? `hold-${hold.type}` : "";
 };
 
 // Toggle hold selection
 const toggleHold = (index) => {
+  if (props.editMode) return;
+
   let newSelectedHolds = [...props.selectedHolds];
 
   const existingIndex = newSelectedHolds.findIndex((h) => h.index === index);
@@ -145,13 +200,95 @@ const toggleHold = (index) => {
   emit("update:selectedHolds", newSelectedHolds);
 };
 
-// Initialize on mount
+// Handle click on the image to add a new hold
+const handleImageClick = (event) => {
+  if (!props.editMode) return;
+
+  // Get click coordinates relative to the image
+  const rect = event.target.getBoundingClientRect();
+  const pixelX = event.clientX - rect.left;
+  const pixelY = event.clientY - rect.top;
+
+  // Convert to relative coordinates (0-1)
+  const relativeX = pixelX / imageWidth.value;
+  const relativeY = pixelY / imageHeight.value;
+
+  // Add new hold at click position (store relative coordinates)
+  const newHold = {
+    x: relativeX,
+    y: relativeY,
+  };
+
+  // Add to holds array
+  holds.value.push(newHold);
+
+  // Update display holds
+  updateDisplayHolds();
+
+  // Emit update event with the updated holds array
+  emit("update:holdPositions", holds.value);
+};
+
+// Remove a hold
+const removeHold = (index) => {
+  if (!props.editMode) return;
+
+  // Remove the hold
+  holds.value.splice(index, 1);
+  displayHolds.value.splice(index, 1);
+
+  // Emit update event with the updated holds array
+  emit("update:holdPositions", holds.value);
+
+  // Update selected holds if needed
+  if (props.selectedHolds.some((h) => h.index === index)) {
+    const newSelectedHolds = props.selectedHolds
+      .filter((h) => h.index !== index)
+      .map((h) => {
+        // Adjust indices for holds after the removed one
+        if (h.index > index) {
+          return { ...h, index: h.index - 1 };
+        }
+        return h;
+      });
+
+    emit("update:selectedHolds", newSelectedHolds);
+  }
+};
+
+// Save hold positions
+const saveHoldPositions = () => {
+  // Emit update event with relative positions
+  emit("update:holdPositions", holds.value);
+
+  // Exit edit mode if needed
+  if (props.editMode) {
+    emit("update:editMode", false);
+  }
+};
+
+// Cancel edit and revert to original positions
+const cancelEdit = () => {
+  // Revert to original positions
+  holds.value = [...originalHoldPositions.value];
+  updateDisplayHolds();
+
+  // Exit edit mode
+  emit("update:editMode", false);
+};
+
+// Clean up event listeners
 onMounted(() => {
   // If the image is already loaded, initialize holds
   const img = sprayWallRef.value?.querySelector("img");
   if (img && img.complete) {
     initializeHolds();
   }
+});
+
+// Clean up event listeners on unmount
+onUnmounted(() => {
+  window.removeEventListener("resize", updateDisplayHolds);
 });
 </script>
 
@@ -173,9 +310,13 @@ onMounted(() => {
   &-image {
     display: block;
     border-radius: var(--border-radius);
-
     width: 100%;
     height: auto;
+    cursor: default;
+
+    &:hover {
+      cursor: pointer;
+    }
   }
 }
 
@@ -188,12 +329,22 @@ onMounted(() => {
   transition: all 0.2s ease;
 
   &:hover {
-    transform: scale(1.1);
+    transform: translate(-50%, -50%) scale(1.1) !important;
     border-color: white;
   }
 
   &-selected {
     border-width: 3px;
+  }
+
+  &-edit {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-color: #ff5722;
+    border-width: 2px;
+
+    &:hover {
+      background-color: rgba(255, 87, 34, 0.5);
+    }
   }
 
   &-start {
@@ -264,7 +415,7 @@ onMounted(() => {
 @media (max-width: 768px) {
   .hold {
     &:hover {
-      transform: none;
+      transform: translate(-50%, -50%) !important;
     }
   }
 

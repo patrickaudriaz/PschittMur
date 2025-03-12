@@ -5,9 +5,9 @@
         <div>
           <h3>Bouldering Problems</h3>
           <p class="welcome-message">
-            Welcome to the "Pschitt Mur" app for Le Hangar climbing gym in
-            Fribourg! Create and share your spray wall boulder problems with the
-            community.
+            Welcome to the "Pschitt Mur" (Spray Wall) app for Le Hangar climbing
+            gym in Fribourg! Create and share your spray wall boulder problems
+            with the community.
           </p>
         </div>
         <div class="header-actions">

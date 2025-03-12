@@ -16,6 +16,11 @@ const routes = [
     name: 'ProblemDetails',
     component: () => import('../views/RouteDetailsView.vue'),
     props: true
+  },
+  {
+    path: '/editor',
+    name: 'SprayWallEditor',
+    component: () => import('../views/SprayWallEditor.vue')
   }
 ]
 
