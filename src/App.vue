@@ -69,7 +69,7 @@ const logout = () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     width: 100%;
   }
@@ -108,7 +108,7 @@ const logout = () => {
 
 .app-content {
   flex: 1;
-  max-width: 1200px;
+  max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }

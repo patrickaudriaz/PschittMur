@@ -127,7 +127,7 @@ function updateDisplayHolds() {
   imageHeight.value = img.clientHeight;
 
   // Calculate default hold size based on image dimensions
-  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.05; // 5% of the image size
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 5% of the image size
 
   // Convert relative positions to pixel positions for display
   displayHolds.value = holds.value.map((hold) => ({
@@ -150,7 +150,7 @@ function initializeHolds() {
   imageHeight.value = img.clientHeight;
 
   // Calculate default hold size based on image dimensions
-  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.05; // 5% of the image size
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 5% of the image size
 
   // Store the original hold positions (relative coordinates)
   holds.value = [...props.holdPositions];
@@ -313,6 +313,7 @@ onUnmounted(() => {
     width: 100%;
     height: auto;
     cursor: default;
+    filter: saturate(0.2) contrast(1) blur(0.3px); /* Reduce saturation to 60% and slightly increase contrast */
 
     &:hover {
       cursor: pointer;
@@ -323,7 +324,7 @@ onUnmounted(() => {
 .hold {
   position: absolute;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   background-color: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -331,40 +332,47 @@ onUnmounted(() => {
   &:hover {
     transform: translate(-50%, -50%) scale(1.1) !important;
     border-color: white;
+    filter: brightness(1.2);
   }
 
   &-selected {
     border-width: 3px;
+    border-color: white;
   }
 
   &-edit {
-    background-color: rgba(255, 255, 255, 0.5);
-    border-color: #ff5722;
+    background-color: rgba(255, 87, 34, 0.7);
+    border-color: white;
     border-width: 2px;
 
     &:hover {
-      background-color: rgba(255, 87, 34, 0.5);
+      background-color: rgba(255, 87, 34, 0.8);
+      filter: brightness(1.3);
     }
   }
 
   &-start {
-    background-color: rgba(76, 175, 80, 0.6);
-    border-color: #4caf50;
+    background-color: rgba(0, 255, 8, 0.7);
+    border-color: white;
+    filter: brightness(1.4);
   }
 
   &-hand {
-    background-color: rgba(33, 150, 243, 0.6);
-    border-color: #2196f3;
+    background-color: rgba(0, 13, 255, 0.6);
+    border-color: white;
+    filter: brightness(1.4);
   }
 
   &-feet {
-    background-color: rgba(255, 152, 0, 0.6);
-    border-color: #ff9800;
+    background-color: rgb(255, 132, 0, 0.7);
+    border-color: white;
+    filter: brightness(1.4);
   }
 
   &-top {
-    background-color: rgba(233, 30, 99, 0.6);
-    border-color: #e91e63;
+    background-color: rgba(254, 16, 250, 0.6);
+    border-color: white;
+    filter: brightness(1.4);
   }
 }
 
