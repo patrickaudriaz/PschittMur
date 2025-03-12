@@ -1,33 +1,47 @@
 <template>
   <div class="spray-wall-container">
-    <div class="spray-wall" ref="sprayWallRef">
-      <img
-        :src="sprayWallImage"
-        alt="Spray Wall"
-        class="spray-wall-image"
-        @load="initializeHolds"
-        @click="editMode && handleImageClick($event)"
-      />
-
-      <!-- Holds overlay -->
+    <div
+      class="spray-wall"
+      ref="sprayWallRef"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+    >
       <div
-        v-for="(hold, index) in displayHolds"
-        :key="index"
-        class="hold"
-        :class="[
-          { 'hold-selected': isHoldSelected(index) && !editMode },
-          selectedHoldType(index),
-          { 'hold-edit': editMode },
-        ]"
+        class="spray-wall-content"
         :style="{
-          left: `${hold.pixelX}px`,
-          top: `${hold.pixelY}px`,
-          width: `${hold.size}px`,
-          height: `${hold.size}px`,
-          transform: 'translate(-50%, -50%)',
+          transform: `scale(${zoom}) translate(${panX}px, ${panY}px)`,
+          transformOrigin: '0 0',
         }"
-        @click.stop="editMode ? removeHold(index) : toggleHold(index)"
-      ></div>
+      >
+        <img
+          :src="sprayWallImage"
+          alt="Spray Wall"
+          class="spray-wall-image"
+          @load="initializeHolds"
+          @click="editMode && handleImageClick($event)"
+        />
+
+        <!-- Holds overlay -->
+        <div
+          v-for="(hold, index) in displayHolds"
+          :key="index"
+          class="hold"
+          :class="[
+            { 'hold-selected': isHoldSelected(index) && !editMode },
+            selectedHoldType(index),
+            { 'hold-edit': editMode },
+          ]"
+          :style="{
+            left: `${hold.pixelX}px`,
+            top: `${hold.pixelY}px`,
+            width: `${hold.size}px`,
+            height: `${hold.size}px`,
+            transform: 'translate(-50%, -50%)',
+          }"
+          @click.stop="editMode ? removeHold(index) : toggleHold(index)"
+        ></div>
+      </div>
     </div>
 
     <div v-if="selectionMode && !editMode" class="hold-type-selector">
@@ -94,6 +108,21 @@ const originalHoldPositions = ref([]); // Store original positions for cancel
 const imageWidth = ref(0);
 const imageHeight = ref(0);
 
+// Zoom and pan state
+const zoom = ref(1);
+const panX = ref(0);
+const panY = ref(0);
+const touchStartX = ref(0);
+const touchStartY = ref(0);
+const initialPinchDistance = ref(0);
+const initialZoom = ref(1);
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+const isPinching = ref(false);
+const lastTouchTime = ref(0);
+const lastTapX = ref(0);
+const lastTapY = ref(0);
+
 // Watch for changes in props
 watch(
   () => props.holdPositions,
@@ -117,6 +146,122 @@ watch(
     }
   }
 );
+
+// Touch gesture handlers
+const handleTouchStart = (event) => {
+  if (event.touches.length === 1) {
+    // Single touch - prepare for panning
+    touchStartX.value = event.touches[0].clientX;
+    touchStartY.value = event.touches[0].clientY;
+
+    // Check for double tap
+    const now = new Date().getTime();
+    const timeDiff = now - lastTouchTime.value;
+    const x = event.touches[0].clientX;
+    const y = event.touches[0].clientY;
+    const distance = Math.sqrt(
+      Math.pow(x - lastTapX.value, 2) + Math.pow(y - lastTapY.value, 2)
+    );
+
+    if (timeDiff < 300 && distance < 30) {
+      // Double tap detected - reset zoom
+      resetZoom();
+    }
+
+    lastTouchTime.value = now;
+    lastTapX.value = x;
+    lastTapY.value = y;
+  } else if (event.touches.length === 2) {
+    // Pinch gesture - prepare for zooming
+    isPinching.value = true;
+    initialPinchDistance.value = getPinchDistance(event);
+    initialZoom.value = zoom.value;
+  }
+};
+
+const handleTouchMove = (event) => {
+  if (event.touches.length === 1 && !isPinching.value) {
+    // Panning with one finger
+    const touchX = event.touches[0].clientX;
+    const touchY = event.touches[0].clientY;
+
+    // Calculate delta movement
+    const deltaX = (touchX - touchStartX.value) / zoom.value;
+    const deltaY = (touchY - touchStartY.value) / zoom.value;
+
+    // Update pan position
+    panX.value += deltaX;
+    panY.value += deltaY;
+
+    // Update start position for next move
+    touchStartX.value = touchX;
+    touchStartY.value = touchY;
+
+    // Prevent default to avoid scrolling the page
+    event.preventDefault();
+  } else if (event.touches.length === 2) {
+    // Pinch zooming with two fingers
+    const currentDistance = getPinchDistance(event);
+    const scale = currentDistance / initialPinchDistance.value;
+
+    // Calculate new zoom level
+    let newZoom = initialZoom.value * scale;
+
+    // Clamp zoom level
+    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+
+    // Get pinch center
+    const rect = sprayWallRef.value.getBoundingClientRect();
+    const pinchCenterX =
+      (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left;
+    const pinchCenterY =
+      (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top;
+
+    // Calculate zoom around pinch center
+    const zoomFactor = newZoom / zoom.value;
+    const currentPinchCenterX = (pinchCenterX - panX.value) / zoom.value;
+    const currentPinchCenterY = (pinchCenterY - panY.value) / zoom.value;
+
+    // Update pan to keep pinch center fixed
+    panX.value = pinchCenterX - currentPinchCenterX * newZoom;
+    panY.value = pinchCenterY - currentPinchCenterY * newZoom;
+
+    // Update zoom
+    zoom.value = newZoom;
+
+    // Prevent default to avoid browser zoom
+    event.preventDefault();
+  }
+};
+
+const handleTouchEnd = (event) => {
+  if (event.touches.length < 2) {
+    isPinching.value = false;
+  }
+
+  // Ensure we're not zoomed out too far
+  if (zoom.value < MIN_ZOOM) {
+    zoom.value = MIN_ZOOM;
+  }
+
+  // Ensure we're not panned outside the image bounds when zoomed out
+  if (zoom.value === MIN_ZOOM) {
+    panX.value = 0;
+    panY.value = 0;
+  }
+};
+
+const getPinchDistance = (event) => {
+  const dx = event.touches[0].clientX - event.touches[1].clientX;
+  const dy = event.touches[0].clientY - event.touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+const resetZoom = () => {
+  zoom.value = MIN_ZOOM;
+  panX.value = 0;
+  panY.value = 0;
+};
 
 // Update display holds whenever the image size changes
 function updateDisplayHolds() {
@@ -209,9 +354,13 @@ const handleImageClick = (event) => {
   const pixelX = event.clientX - rect.left;
   const pixelY = event.clientY - rect.top;
 
+  // Adjust for zoom and pan
+  const adjustedX = (pixelX - panX.value) / zoom.value;
+  const adjustedY = (pixelY - panY.value) / zoom.value;
+
   // Convert to relative coordinates (0-1)
-  const relativeX = pixelX / imageWidth.value;
-  const relativeY = pixelY / imageHeight.value;
+  const relativeX = adjustedX / imageWidth.value;
+  const relativeY = adjustedY / imageHeight.value;
 
   // Add new hold at click position (store relative coordinates)
   const newHold = {
@@ -306,6 +455,14 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  touch-action: none; /* Disable browser's default touch actions */
+
+  &-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.05s ease-out;
+  }
 
   &-image {
     display: block;
