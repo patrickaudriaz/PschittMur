@@ -156,6 +156,8 @@ function clearAllHolds() {
 </script>
 
 <style lang="scss" scoped>
+@use "sass:color";
+
 .spray-wall-editor {
   max-width: 1200px;
   margin: 0 auto;
