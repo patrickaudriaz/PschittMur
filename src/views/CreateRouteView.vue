@@ -74,7 +74,7 @@
           />
 
           <div class="selected-holds-summary" v-if="selectedHolds.length > 0">
-            <h3>Selected Holds</h3>
+            <h4 class="holds-count-title">Selected Holds</h4>
             <div class="holds-count">
               <div
                 class="hold-type-count"
@@ -311,12 +311,16 @@ async function saveProblem() {
 
 .selected-holds-summary {
   margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  padding: 1rem;
   border-top: 1px solid #eee;
 
   h3 {
     margin: 0 0 1rem;
     font-size: 1.1rem;
+  }
+
+  .holds-count-title {
+    margin-bottom: 0.5rem;
   }
 
   .holds-count {

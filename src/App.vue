@@ -85,7 +85,7 @@ const logout = () => {
     }
 
     .header-subtitle {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       opacity: 0.8;
     }
   }

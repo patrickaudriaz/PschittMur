@@ -194,6 +194,7 @@ function refreshProblems() {
 
     label {
       font-weight: bold;
+      font-size: 0.9rem;
       white-space: nowrap;
     }
 
@@ -293,7 +294,7 @@ function refreshProblems() {
     background-color: var(--dark-color);
     color: white;
     font-weight: bold;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
 
   .problem-info {

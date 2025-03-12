@@ -250,17 +250,17 @@ function confirmDelete() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
 
     .problem-name {
       margin: 0;
-      font-size: 1.4rem;
+      font-size: 1.2rem;
     }
 
     .problem-grade {
       background-color: var(--dark-color);
       color: white;
-      padding: 0.5rem 1rem;
+      padding: 0.4rem 1rem;
       border-radius: var(--border-radius);
       font-weight: bold;
       font-size: 1.1rem;
@@ -268,13 +268,14 @@ function confirmDelete() {
   }
 
   .problem-meta {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
     border-bottom: 1px solid #eee;
+    font-size: 0.9rem;
 
     .problem-creator,
     .problem-date {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.2rem;
       color: #666;
     }
   }
