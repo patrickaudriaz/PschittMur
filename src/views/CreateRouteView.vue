@@ -310,7 +310,6 @@ async function saveProblem() {
 }
 
 .selected-holds-summary {
-  margin-top: 1.5rem;
   padding: 1rem;
   border-top: 1px solid #eee;
 
@@ -332,6 +331,7 @@ async function saveProblem() {
       background-color: #f5f5f5;
       padding: 0.5rem 1rem;
       border-radius: var(--border-radius);
+      font-size: 0.9rem;
 
       .hold-type-label {
         font-weight: bold;

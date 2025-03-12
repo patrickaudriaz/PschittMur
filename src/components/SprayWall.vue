@@ -369,11 +369,8 @@ onUnmounted(() => {
 }
 
 .hold-type-selector {
-  margin-top: 1rem;
   padding: 1rem;
   background-color: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
   width: 100%;
 
   .hold-type-title {

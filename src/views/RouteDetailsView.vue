@@ -297,6 +297,7 @@ function confirmDelete() {
         background-color: #f5f5f5;
         padding: 0.5rem 1rem;
         border-radius: var(--border-radius);
+        font-size: 0.9rem;
 
         .hold-type-label {
           font-weight: bold;
