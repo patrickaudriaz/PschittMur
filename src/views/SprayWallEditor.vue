@@ -222,7 +222,7 @@ function clearAllHolds() {
           font-weight: 500;
 
           &:hover {
-            background-color: darken(#2196f3, 10%);
+            background-color: color.adjust(#2196f3, $lightness: -10%);
           }
         }
       }
@@ -276,7 +276,7 @@ function clearAllHolds() {
           background-color: #9c27b0;
 
           &:hover {
-            background-color: #7b1fa2;
+            background-color: color.adjust(#9c27b0, $lightness: -10%);
           }
         }
 
@@ -284,7 +284,7 @@ function clearAllHolds() {
           background-color: #ff9800;
 
           &:hover {
-            background-color: #f57c00;
+            background-color: color.adjust(#ff9800, $lightness: -10%);
           }
         }
 
@@ -292,7 +292,7 @@ function clearAllHolds() {
           background-color: #f44336;
 
           &:hover {
-            background-color: #d32f2f;
+            background-color: color.adjust(#f44336, $lightness: -10%);
           }
         }
       }
