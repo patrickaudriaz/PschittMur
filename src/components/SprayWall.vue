@@ -20,6 +20,7 @@
           class="spray-wall-image"
           @load="initializeHolds"
           @click="editMode && handleImageClick($event)"
+          draggable="false"
         />
 
         <!-- Holds overlay -->
@@ -29,8 +30,8 @@
           class="hold"
           :class="[
             { 'hold-selected': isHoldSelected(index) && !editMode },
-            selectedHoldType(index),
             { 'hold-edit': editMode },
+            selectedHoldType(index),
           ]"
           :style="{
             left: `${hold.pixelX}px`,
@@ -40,6 +41,9 @@
             transform: 'translate(-50%, -50%)',
           }"
           @click.stop="editMode ? removeHold(index) : toggleHold(index)"
+          @touchend.stop="
+            !isPinching && (editMode ? removeHold(index) : toggleHold(index))
+          "
         ></div>
       </div>
     </div>
@@ -235,19 +239,26 @@ const handleTouchMove = (event) => {
 };
 
 const handleTouchEnd = (event) => {
-  if (event.touches.length < 2) {
-    isPinching.value = false;
-  }
+  // Only handle touch end for pinch gestures
+  if (isPinching.value) {
+    // End pinching
+    if (event.touches.length < 2) {
+      isPinching.value = false;
+    }
 
-  // Ensure we're not zoomed out too far
-  if (zoom.value < MIN_ZOOM) {
-    zoom.value = MIN_ZOOM;
-  }
+    // Ensure we're not zoomed out too far
+    if (zoom.value < MIN_ZOOM) {
+      zoom.value = MIN_ZOOM;
+    }
 
-  // Ensure we're not panned outside the image bounds when zoomed out
-  if (zoom.value === MIN_ZOOM) {
-    panX.value = 0;
-    panY.value = 0;
+    // Reset pan when at minimum zoom
+    if (zoom.value === MIN_ZOOM) {
+      panX.value = 0;
+      panY.value = 0;
+    }
+
+    // Prevent default only for pinch gestures
+    event.preventDefault();
   }
 };
 
@@ -323,6 +334,9 @@ const selectedHoldType = (index) => {
 const toggleHold = (index) => {
   if (props.editMode) return;
 
+  // Don't toggle if we're in the middle of a pinch gesture
+  if (isPinching.value) return;
+
   let newSelectedHolds = [...props.selectedHolds];
 
   const existingIndex = newSelectedHolds.findIndex((h) => h.index === index);
@@ -342,7 +356,10 @@ const toggleHold = (index) => {
     });
   }
 
-  emit("update:selectedHolds", newSelectedHolds);
+  // Force a small delay to ensure the DOM updates properly on mobile
+  setTimeout(() => {
+    emit("update:selectedHolds", newSelectedHolds);
+  }, 10);
 };
 
 // Handle click on the image to add a new hold
@@ -485,6 +502,7 @@ onUnmounted(() => {
   background-color: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 
   &:hover {
     transform: translate(-50%, -50%) scale(1.1) !important;
@@ -508,27 +526,32 @@ onUnmounted(() => {
     }
   }
 
-  &-start {
-    background-color: rgba(0, 255, 8, 0.7);
-    border-color: white;
+  /* Make sure type styles override selected styles */
+  &-start,
+  &.hold-selected.hold-start {
+    background-color: rgba(0, 255, 8, 0.6);
+    border-color: rgb(244, 100, 100) !important;
     filter: brightness(1.4);
   }
 
-  &-hand {
+  &-hand,
+  &.hold-selected.hold-hand {
     background-color: rgba(0, 13, 255, 0.6);
-    border-color: white;
+    border-color: rgb(244, 100, 100) !important;
     filter: brightness(1.4);
   }
 
-  &-feet {
-    background-color: rgb(255, 132, 0, 0.7);
-    border-color: white;
+  &-feet,
+  &.hold-selected.hold-feet {
+    background-color: rgba(255, 191, 0, 0.6);
+    border-color: rgb(244, 100, 100) !important;
     filter: brightness(1.4);
   }
 
-  &-top {
+  &-top,
+  &.hold-selected.hold-top {
     background-color: rgba(254, 16, 250, 0.6);
-    border-color: white;
+    border-color: rgb(244, 100, 100) !important;
     filter: brightness(1.4);
   }
 }
@@ -576,8 +599,43 @@ onUnmounted(() => {
 // Mobile optimizations
 @media (max-width: 768px) {
   .hold {
+    border-width: 2px;
+
     &:hover {
       transform: translate(-50%, -50%) !important;
+    }
+
+    &-selected {
+      border-width: 2px;
+    }
+
+    /* Ensure type-specific styles override the selected style on mobile */
+    &.hold-start,
+    &.hold-selected.hold-start {
+      background-color: rgba(0, 255, 8, 0.6);
+      border-color: rgb(244, 100, 100) !important;
+      filter: brightness(1.4);
+    }
+
+    &.hold-hand,
+    &.hold-selected.hold-hand {
+      background-color: rgba(0, 13, 255, 0.6);
+      border-color: rgb(244, 100, 100) !important;
+      filter: brightness(1.4);
+    }
+
+    &.hold-feet,
+    &.hold-selected.hold-feet {
+      background-color: rgba(255, 191, 0, 0.6);
+      border-color: rgb(244, 100, 100) !important;
+      filter: brightness(1.4);
+    }
+
+    &.hold-top,
+    &.hold-selected.hold-top {
+      background-color: rgba(254, 16, 250, 0.6);
+      border-color: rgb(244, 100, 100) !important;
+      filter: brightness(1.4);
     }
   }
 
