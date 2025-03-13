@@ -61,6 +61,15 @@
               </span>
               <span v-else>Save Problem</span>
             </button>
+
+            <button
+              type="button"
+              class="reset-btn"
+              @click="confirmReset"
+              :disabled="selectedHolds.length === 0 || isSaving"
+            >
+              Reset Holds
+            </button>
           </div>
         </form>
 
@@ -184,6 +193,19 @@ async function saveProblem() {
     isSaving.value = false;
   }
 }
+
+// Reset selected holds with confirmation
+function confirmReset() {
+  if (selectedHolds.value.length === 0) return;
+
+  if (
+    confirm(
+      "Are you sure you want to reset all selected holds? This action cannot be undone."
+    )
+  ) {
+    selectedHolds.value = [];
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -294,6 +316,31 @@ async function saveProblem() {
 
       &:hover:not(:disabled) {
         background-color: color.scale(#2ecc71, $lightness: -5%);
+      }
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+    }
+
+    .reset-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: var(--danger-color);
+      color: white;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 0.9rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      &:hover:not(:disabled) {
+        background-color: color.scale(#e74c3c, $lightness: -5%);
       }
 
       &:disabled {

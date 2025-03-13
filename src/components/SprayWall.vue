@@ -32,6 +32,7 @@
           :class="[
             { 'hold-selected': isHoldSelected(index) && !editMode },
             { 'hold-edit': editMode },
+            { 'hold-view-only': viewOnly },
             selectedHoldType(index),
           ]"
           :style="{
@@ -42,10 +43,12 @@
             transform: 'translate(-50%, -50%)',
           }"
           @click.stop="
-            editMode ? removeHold(index) : cycleHoldType(index, $event)
+            !viewOnly &&
+              (editMode ? removeHold(index) : cycleHoldType(index, $event))
           "
-          @touchend.stop="
-            !isPinching &&
+          @touchend.stop.prevent="
+            !viewOnly &&
+              !isPinching &&
               !isMoving &&
               (editMode ? removeHold(index) : cycleHoldType(index, $event))
           "
@@ -116,6 +119,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  viewOnly: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Emits
@@ -128,6 +135,15 @@ const emit = defineEmits([
 // Store
 const routeStore = useRouteStore();
 const holdTypes = Object.values(routeStore.holdTypes);
+
+// Define the exact order of hold types for cycling
+const orderedHoldTypesForCycling = [
+  routeStore.holdTypes.HAND, // Hand first
+  routeStore.holdTypes.FEET, // Feet second
+  routeStore.holdTypes.START, // Start third
+  routeStore.holdTypes.TOP, // Top fourth
+  null, // Unselected last
+];
 
 // State
 const sprayWallRef = ref(null);
@@ -288,11 +304,14 @@ const handleTouchEnd = (event) => {
 
     // Prevent default only for pinch gestures
     event.preventDefault();
-  } else {
-    // For single touch, reset isMoving after a short delay
+  } else if (isMoving.value) {
+    // For single touch movement, reset isMoving after a short delay
     setTimeout(() => {
       isMoving.value = false;
     }, 300);
+  } else {
+    // For simple taps, reset immediately to ensure hold cycling works
+    isMoving.value = false;
   }
 };
 
@@ -366,46 +385,56 @@ const selectedHoldType = (index) => {
 
 // Cycle through hold types
 const cycleHoldType = (index, event) => {
-  if (props.editMode || isPinching.value || isMoving.value) return;
+  // Don't allow cycling if in viewOnly mode, editMode, or during pinch/move gestures
+  if (props.viewOnly || props.editMode || isPinching.value || isMoving.value)
+    return;
 
   let newSelectedHolds = [...props.selectedHolds];
   const existingIndex = newSelectedHolds.findIndex((h) => h.index === index);
-  const holdTypeOrder = [...holdTypes, null]; // Add null for "unselected" state
 
   let nextTypeIndex = 0;
 
   if (existingIndex !== -1) {
     // Find current type in the order
     const currentType = newSelectedHolds[existingIndex].type;
-    const currentTypeIndex = holdTypeOrder.findIndex(
+
+    // Find the current type in our ordered array
+    let currentTypeIndex = orderedHoldTypesForCycling.findIndex(
       (type) => type === currentType
     );
 
-    // Get next type in the cycle
-    nextTypeIndex = (currentTypeIndex + 1) % holdTypeOrder.length;
+    // If the current type isn't found in our ordered array (which might happen if the data is inconsistent),
+    // default to the first type
+    if (currentTypeIndex === -1) {
+      currentTypeIndex = 0;
+    }
 
-    if (holdTypeOrder[nextTypeIndex] === null) {
+    // Get next type in the cycle
+    nextTypeIndex = (currentTypeIndex + 1) % orderedHoldTypesForCycling.length;
+
+    if (orderedHoldTypesForCycling[nextTypeIndex] === null) {
       // Remove the hold if cycling to "unselected"
       newSelectedHolds.splice(existingIndex, 1);
       showHoldTypeIndicator(index, "Unselected");
     } else {
       // Update to the next type
-      newSelectedHolds[existingIndex].type = holdTypeOrder[nextTypeIndex];
-      showHoldTypeIndicator(index, holdTypeOrder[nextTypeIndex]);
+      newSelectedHolds[existingIndex].type =
+        orderedHoldTypesForCycling[nextTypeIndex];
+      showHoldTypeIndicator(index, orderedHoldTypesForCycling[nextTypeIndex]);
     }
   } else {
     // Add new hold with first type in the cycle (hand)
     newSelectedHolds.push({
       index,
-      type: holdTypeOrder[0],
+      type: orderedHoldTypesForCycling[0],
     });
-    showHoldTypeIndicator(index, holdTypeOrder[0]);
+    showHoldTypeIndicator(index, orderedHoldTypesForCycling[0]);
   }
 
   // Force a small delay to ensure the DOM updates properly on mobile
   setTimeout(() => {
     emit("update:selectedHolds", newSelectedHolds);
-  }, 10);
+  }, 100); // Increased from 50ms to 100ms for better reliability on mobile
 };
 
 // Show hold type indicator
@@ -420,7 +449,8 @@ const showHoldTypeIndicator = (index, type) => {
 
   // Limit the number of active indicators to improve performance
   // Remove oldest indicators if we have too many
-  if (holdTypeIndicators.value.length >= 3) {
+  if (holdTypeIndicators.value.length >= 5) {
+    // Increased from 3 to 5
     holdTypeIndicators.value.shift();
   }
 
@@ -438,7 +468,9 @@ const showHoldTypeIndicator = (index, type) => {
   // Add to indicators array
   holdTypeIndicators.value.push(indicator);
 
-  // Remove indicator after 1 second (reduced from 1.5 seconds)
+  // Remove indicator after longer time on mobile
+  const displayDuration = isMobile ? 1500 : 500; // 1.5 seconds on mobile, 0.5 seconds on desktop
+
   setTimeout(() => {
     const index = holdTypeIndicators.value.findIndex(
       (i) => i.id === indicator.id
@@ -446,7 +478,7 @@ const showHoldTypeIndicator = (index, type) => {
     if (index !== -1) {
       holdTypeIndicators.value.splice(index, 1);
     }
-  }, 500);
+  }, displayDuration);
 };
 
 // Handle click on the image to add a new hold
@@ -704,6 +736,16 @@ onUnmounted(() => {
     &:hover {
       background-color: rgba(255, 87, 34, 0.8);
       filter: brightness(1.3);
+    }
+  }
+
+  &-view-only {
+    cursor: default;
+
+    &:hover {
+      transform: translate(-50%, -50%) !important;
+      border-color: rgba(0, 0, 0, 0.5);
+      filter: none;
     }
   }
 
