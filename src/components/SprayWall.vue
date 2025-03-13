@@ -46,13 +46,7 @@
             !viewOnly &&
               (editMode ? removeHold(index) : cycleHoldType(index, $event))
           "
-          @touchend.stop.prevent="
-            !viewOnly &&
-              !isPinching &&
-              !isMoving &&
-              Date.now() - lastMoveTime.value >= touchCooldownPeriod &&
-              (editMode ? removeHold(index) : cycleHoldType(index, $event))
-          "
+          @touchend.stop="handleHoldTouchEnd(index, $event)"
         ></div>
 
         <!-- Hold type indicator -->
@@ -171,7 +165,7 @@ const isPinching = ref(false);
 const isMoving = ref(false);
 const lastMoveTime = ref(0); // Track when the last movement occurred
 const movementThreshold = 10; // Pixels of movement to consider as a pan/zoom
-const touchCooldownPeriod = 300; // Milliseconds to wait after movement before allowing selection
+const touchCooldownPeriod = 150; // Milliseconds to wait after movement before allowing selection
 
 // Fullscreen state
 const isFullscreen = ref(false);
@@ -210,6 +204,10 @@ const handleTouchStart = (event) => {
     touchStartX.value = event.touches[0].clientX;
     touchStartY.value = event.touches[0].clientY;
     isMoving.value = false;
+
+    // For a new touch, reset the last move time to allow immediate selection
+    // if this turns out to be a tap rather than a pan
+    lastMoveTime.value = 0;
   } else if (event.touches.length === 2) {
     // Pinch gesture - prepare for zooming
     isPinching.value = true;
@@ -226,8 +224,8 @@ const handleTouchMove = (event) => {
     const touchY = event.touches[0].clientY;
 
     // Calculate delta movement
-    const deltaX = (touchX - touchStartX.value) / zoom.value;
-    const deltaY = (touchY - touchStartY.value) / zoom.value;
+    const deltaX = touchX - touchStartX.value;
+    const deltaY = touchY - touchStartY.value;
 
     // Check if we've moved enough to consider it a pan
     if (
@@ -238,9 +236,9 @@ const handleTouchMove = (event) => {
       lastMoveTime.value = Date.now(); // Update the last move time
     }
 
-    // Update pan position
-    panX.value += deltaX;
-    panY.value += deltaY;
+    // Update pan position (adjusted for zoom)
+    panX.value += deltaX / zoom.value;
+    panY.value += deltaY / zoom.value;
 
     // Update start position for next move
     touchStartX.value = touchX;
@@ -312,19 +310,17 @@ const handleTouchEnd = (event) => {
     // Prevent default only for pinch gestures
     event.preventDefault();
   } else if (isMoving.value) {
-    // For single touch movement, reset isMoving after a delay
+    // For single touch movement, update the last move time
+    lastMoveTime.value = Date.now();
+
+    // Reset isMoving after a delay
     setTimeout(() => {
       isMoving.value = false;
     }, touchCooldownPeriod);
-
-    // Always update the last move time on touch end if we were moving
-    lastMoveTime.value = Date.now();
-
-    // Prevent default to avoid accidental hold selection
-    event.preventDefault();
   } else {
     // For simple taps, reset immediately to ensure hold cycling works
     isMoving.value = false;
+    // For simple taps, we don't update lastMoveTime, so selection can happen immediately
   }
 };
 
@@ -405,7 +401,8 @@ const cycleHoldType = (index, event) => {
     props.editMode ||
     isPinching.value ||
     isMoving.value ||
-    Date.now() - lastMoveTime.value < touchCooldownPeriod
+    (lastMoveTime.value > 0 &&
+      Date.now() - lastMoveTime.value < touchCooldownPeriod)
   ) {
     return;
   }
@@ -482,7 +479,7 @@ const showHoldTypeIndicator = (index, type) => {
   const indicator = {
     id: Date.now(), // Unique ID for this indicator
     x: hold.pixelX,
-    y: hold.pixelY - (isMobile ? 25 : 30), // Position closer on mobile
+    y: hold.pixelY - (isMobile ? 20 : 30), // Position closer on mobile
     text: displayText,
   };
 
@@ -507,7 +504,11 @@ const handleImageClick = (event) => {
   if (!props.editMode) return;
 
   // Don't add holds if we're within the cooldown period after movement
-  if (Date.now() - lastMoveTime.value < touchCooldownPeriod) return;
+  if (
+    lastMoveTime.value > 0 &&
+    Date.now() - lastMoveTime.value < touchCooldownPeriod
+  )
+    return;
 
   // Get click coordinates relative to the image
   const rect = event.target.getBoundingClientRect();
@@ -543,7 +544,11 @@ const removeHold = (index) => {
   if (!props.editMode) return;
 
   // Don't remove holds if we're within the cooldown period after movement
-  if (Date.now() - lastMoveTime.value < touchCooldownPeriod) return;
+  if (
+    lastMoveTime.value > 0 &&
+    Date.now() - lastMoveTime.value < touchCooldownPeriod
+  )
+    return;
 
   // Remove the hold
   holds.value.splice(index, 1);
@@ -646,6 +651,33 @@ const handleWheel = (event) => {
   // Pan vertically with wheel
   const scrollAmount = event.deltaY / zoom.value;
   panY.value -= scrollAmount * 0.5; // Adjust sensitivity as needed
+};
+
+// Handle hold touch end
+const handleHoldTouchEnd = (index, event) => {
+  // Prevent default to avoid any browser handling
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Don't do anything in view only mode
+  if (props.viewOnly) return;
+
+  // Check if we can interact with the hold
+  const canInteract = !isPinching.value && !isMoving.value;
+
+  // Only apply cooldown check if we've actually moved
+  const isCooldownOver =
+    lastMoveTime.value === 0 ||
+    Date.now() - lastMoveTime.value >= touchCooldownPeriod;
+
+  if (canInteract && isCooldownOver) {
+    // Handle the hold based on mode
+    if (props.editMode) {
+      removeHold(index);
+    } else {
+      cycleHoldType(index, event);
+    }
+  }
 };
 
 // Clean up event listeners
