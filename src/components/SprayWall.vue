@@ -20,7 +20,7 @@
           alt="Spray Wall"
           class="spray-wall-image"
           @load="initializeHolds"
-          @click="editMode && handleImageClick($event)"
+          @click="editMode && !isMoving && handleImageClick($event)"
           draggable="false"
         />
 
@@ -50,6 +50,7 @@
             !viewOnly &&
               !isPinching &&
               !isMoving &&
+              Date.now() - lastMoveTime.value >= touchCooldownPeriod &&
               (editMode ? removeHold(index) : cycleHoldType(index, $event))
           "
         ></div>
@@ -168,7 +169,9 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const isPinching = ref(false);
 const isMoving = ref(false);
+const lastMoveTime = ref(0); // Track when the last movement occurred
 const movementThreshold = 10; // Pixels of movement to consider as a pan/zoom
+const touchCooldownPeriod = 300; // Milliseconds to wait after movement before allowing selection
 
 // Fullscreen state
 const isFullscreen = ref(false);
@@ -232,6 +235,7 @@ const handleTouchMove = (event) => {
       Math.abs(deltaY) > movementThreshold
     ) {
       isMoving.value = true;
+      lastMoveTime.value = Date.now(); // Update the last move time
     }
 
     // Update pan position
@@ -274,6 +278,9 @@ const handleTouchMove = (event) => {
     // Update zoom
     zoom.value = newZoom;
 
+    // Update last move time for pinch gestures too
+    lastMoveTime.value = Date.now();
+
     // Prevent default to avoid browser zoom
     event.preventDefault();
   }
@@ -288,7 +295,7 @@ const handleTouchEnd = (event) => {
       // Keep isMoving true for a short time to prevent accidental hold selection
       setTimeout(() => {
         isMoving.value = false;
-      }, 300);
+      }, touchCooldownPeriod);
     }
 
     // Ensure we're not zoomed out too far
@@ -305,10 +312,16 @@ const handleTouchEnd = (event) => {
     // Prevent default only for pinch gestures
     event.preventDefault();
   } else if (isMoving.value) {
-    // For single touch movement, reset isMoving after a short delay
+    // For single touch movement, reset isMoving after a delay
     setTimeout(() => {
       isMoving.value = false;
-    }, 300);
+    }, touchCooldownPeriod);
+
+    // Always update the last move time on touch end if we were moving
+    lastMoveTime.value = Date.now();
+
+    // Prevent default to avoid accidental hold selection
+    event.preventDefault();
   } else {
     // For simple taps, reset immediately to ensure hold cycling works
     isMoving.value = false;
@@ -386,8 +399,16 @@ const selectedHoldType = (index) => {
 // Cycle through hold types
 const cycleHoldType = (index, event) => {
   // Don't allow cycling if in viewOnly mode, editMode, or during pinch/move gestures
-  if (props.viewOnly || props.editMode || isPinching.value || isMoving.value)
+  // Also check if we're within the cooldown period after movement
+  if (
+    props.viewOnly ||
+    props.editMode ||
+    isPinching.value ||
+    isMoving.value ||
+    Date.now() - lastMoveTime.value < touchCooldownPeriod
+  ) {
     return;
+  }
 
   let newSelectedHolds = [...props.selectedHolds];
   const existingIndex = newSelectedHolds.findIndex((h) => h.index === index);
@@ -469,7 +490,7 @@ const showHoldTypeIndicator = (index, type) => {
   holdTypeIndicators.value.push(indicator);
 
   // Remove indicator after longer time on mobile
-  const displayDuration = isMobile ? 1500 : 500; // 1.5 seconds on mobile, 0.5 seconds on desktop
+  const displayDuration = isMobile ? 500 : 500; // 0.5 seconds
 
   setTimeout(() => {
     const index = holdTypeIndicators.value.findIndex(
@@ -484,6 +505,9 @@ const showHoldTypeIndicator = (index, type) => {
 // Handle click on the image to add a new hold
 const handleImageClick = (event) => {
   if (!props.editMode) return;
+
+  // Don't add holds if we're within the cooldown period after movement
+  if (Date.now() - lastMoveTime.value < touchCooldownPeriod) return;
 
   // Get click coordinates relative to the image
   const rect = event.target.getBoundingClientRect();
@@ -517,6 +541,9 @@ const handleImageClick = (event) => {
 // Remove a hold
 const removeHold = (index) => {
   if (!props.editMode) return;
+
+  // Don't remove holds if we're within the cooldown period after movement
+  if (Date.now() - lastMoveTime.value < touchCooldownPeriod) return;
 
   // Remove the hold
   holds.value.splice(index, 1);
