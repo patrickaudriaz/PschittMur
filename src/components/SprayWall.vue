@@ -41,6 +41,7 @@
             width: `${hold.size}px`,
             height: `${hold.size}px`,
             transform: 'translate(-50%, -50%)',
+            display: shouldDisplayHold(index) ? 'block' : 'none',
           }"
           @click.stop="
             !viewOnly &&
@@ -87,6 +88,43 @@
           <path v-else d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
         </svg>
       </button>
+
+      <!-- Show all holds toggle button (only visible in non-edit mode) -->
+      <button
+        v-if="!editMode"
+        class="show-all-holds-button"
+        @click="showAllHolds = !showAllHolds"
+        :title="showAllHolds ? 'Show route holds' : 'Show all holds'"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <!-- Show eye-off when showAllHolds is true (showing all holds) -->
+          <g v-if="showAllHolds">
+            <path
+              d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"
+            ></path>
+            <path
+              d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"
+            ></path>
+            <path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </g>
+          <!-- Show eye when showAllHolds is false (hiding unused holds) -->
+          <g v-else>
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </g>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -115,6 +153,10 @@ const props = defineProps({
     default: false,
   },
   viewOnly: {
+    type: Boolean,
+    default: false,
+  },
+  isCreateMode: {
     type: Boolean,
     default: false,
   },
@@ -147,9 +189,12 @@ const displayHolds = ref([]);
 const currentHoldType = ref(routeStore.holdTypes.HAND);
 const sprayWallImage = "/spraywall.jpg";
 const defaultHoldSize = ref(20); // Default size for all holds
-const originalHoldPositions = ref([]); // Store original positions for cancel
+const originalHoldPositions = ref([]);
 const imageWidth = ref(0);
 const imageHeight = ref(0);
+const showAllHolds = ref(props.isCreateMode);
+const previousShowAllHoldsState = ref(props.isCreateMode); // Store previous state when toggling edit mode
+const showAllHoldsInitialized = ref(false);
 
 // Zoom and pan state
 const zoom = ref(1);
@@ -163,9 +208,9 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const isPinching = ref(false);
 const isMoving = ref(false);
-const lastMoveTime = ref(0); // Track when the last movement occurred
-const movementThreshold = 10; // Pixels of movement to consider as a pan/zoom
-const touchCooldownPeriod = 150; // Milliseconds to wait after movement before allowing selection
+const lastMoveTime = ref(0);
+const movementThreshold = 10;
+const touchCooldownPeriod = 150;
 
 // Fullscreen state
 const isFullscreen = ref(false);
@@ -193,8 +238,28 @@ watch(
       originalHoldPositions.value = JSON.parse(
         JSON.stringify(props.holdPositions)
       );
+      // Store the current showAllHolds value before entering edit mode
+      previousShowAllHoldsState.value = showAllHolds.value;
+      // Always show all holds in edit mode
+      showAllHolds.value = true;
+    } else {
+      // Restore previous showAllHolds state when exiting edit mode
+      showAllHolds.value = previousShowAllHoldsState.value;
     }
   }
+);
+
+watch(
+  () => props.isCreateMode,
+  (newIsCreateMode) => {
+    // Only set the initial state when the component is first mounted
+    // Don't update it on subsequent changes to allow manual toggling
+    if (newIsCreateMode !== undefined && !showAllHoldsInitialized.value) {
+      showAllHolds.value = newIsCreateMode;
+      showAllHoldsInitialized.value = true;
+    }
+  },
+  { immediate: true } // Run immediately when component is created
 );
 
 // Touch gesture handlers
@@ -501,7 +566,10 @@ const showHoldTypeIndicator = (index, type) => {
 
 // Handle click on the image to add a new hold
 const handleImageClick = (event) => {
-  if (!props.editMode) return;
+  if (!props.editMode) {
+    // In view mode, clicking on the image should do nothing
+    return;
+  }
 
   // Don't add holds if we're within the cooldown period after movement
   if (
@@ -680,6 +748,18 @@ const handleHoldTouchEnd = (index, event) => {
   }
 };
 
+// Determine if a hold should be displayed
+const shouldDisplayHold = (index) => {
+  // In edit mode, always show all holds
+  if (props.editMode) return true;
+
+  // If showAllHolds is enabled, show all holds regardless of mode or selection
+  if (showAllHolds.value) return true;
+
+  // Otherwise, only show selected holds
+  return isHoldSelected(index);
+};
+
 // Clean up event listeners
 onMounted(() => {
   // If the image is already loaded, initialize holds
@@ -687,6 +767,11 @@ onMounted(() => {
   if (img && img.complete) {
     initializeHolds();
   }
+
+  // Initialize showAllHolds based on isCreateMode
+  showAllHolds.value = props.isCreateMode;
+  previousShowAllHoldsState.value = props.isCreateMode;
+  showAllHoldsInitialized.value = true;
 
   // Add fullscreen change event listener
   document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -859,10 +944,10 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.fullscreen-button {
+.fullscreen-button,
+.show-all-holds-button {
   position: absolute;
   top: 10px;
-  right: 10px;
   background-color: rgba(0, 0, 0, 0.5);
   color: white;
   border: none;
@@ -874,17 +959,61 @@ onUnmounted(() => {
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, box-shadow 0.2s;
   padding: 0; /* Remove padding to allow icon to fill the button */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); /* Add drop shadow */
 
   &:hover {
     background-color: rgba(0, 0, 0, 0.7);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); /* Enhanced shadow on hover */
   }
 
   svg {
     width: 25px;
     height: 25px;
+    filter: drop-shadow(
+      0 1px 1px rgba(0, 0, 0, 0.3)
+    ); /* Add subtle shadow to the icon */
   }
+}
+
+.fullscreen-button {
+  right: 10px;
+}
+
+.show-all-holds-button {
+  left: 10px;
+}
+
+/* Simple tooltip for buttons */
+.fullscreen-button::after,
+.show-all-holds-button::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -30px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.fullscreen-button::after {
+  right: 0;
+}
+
+.show-all-holds-button::after {
+  left: 0;
+}
+
+.fullscreen-button:hover::after,
+.show-all-holds-button:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 // Mobile optimizations
@@ -931,9 +1060,11 @@ onUnmounted(() => {
     }
   }
 
-  .fullscreen-button {
+  .fullscreen-button,
+  .show-all-holds-button {
     width: 30px;
     height: 30px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Slightly smaller shadow for mobile */
 
     svg {
       width: 15px;

@@ -58,6 +58,7 @@
           :holdPositions="holdPositions"
           :selectionMode="false"
           :editMode="true"
+          :isCreateMode="false"
           @update:holdPositions="holdPositions = $event"
           ref="sprayWallRef"
         />

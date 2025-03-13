@@ -81,6 +81,7 @@
           <SprayWall
             :selectionMode="true"
             v-model:selectedHolds="selectedHolds"
+            :isCreateMode="true"
           />
 
           <div class="selected-holds-summary" v-if="selectedHolds.length > 0">

@@ -59,7 +59,11 @@
         </div>
 
         <div class="spray-wall-container">
-          <SprayWall :selectedHolds="route.holds" :viewOnly="true" />
+          <SprayWall
+            :selectedHolds="route.holds"
+            :viewOnly="true"
+            :isCreateMode="false"
+          />
         </div>
       </div>
     </div>
