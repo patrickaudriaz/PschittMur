@@ -43,8 +43,9 @@
           <div class="form-group">
             <label>Select Holds</label>
             <p class="help-text">
-              Select holds on the spray wall to create your problem. Each hold
-              can be a start, hand, feet, or top hold.
+              Click on holds on the spray wall to create your problem. Each
+              click on a hold cycles through these types: Hand → Feet → Start →
+              Top → Unselected.
             </p>
           </div>
 

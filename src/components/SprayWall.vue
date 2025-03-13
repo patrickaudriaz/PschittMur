@@ -6,6 +6,7 @@
       @touchstart="handleTouchStart"
       @touchmove="handleTouchMove"
       @touchend="handleTouchEnd"
+      @wheel="handleWheel"
     >
       <div
         class="spray-wall-content"
@@ -40,27 +41,54 @@
             height: `${hold.size}px`,
             transform: 'translate(-50%, -50%)',
           }"
-          @click.stop="editMode ? removeHold(index) : toggleHold(index)"
+          @click.stop="
+            editMode ? removeHold(index) : cycleHoldType(index, $event)
+          "
           @touchend.stop="
-            !isPinching && (editMode ? removeHold(index) : toggleHold(index))
+            !isPinching &&
+              !isMoving &&
+              (editMode ? removeHold(index) : cycleHoldType(index, $event))
           "
         ></div>
-      </div>
-    </div>
 
-    <div v-if="selectionMode && !editMode" class="hold-type-selector">
-      <div class="hold-type-title">Select hold type:</div>
-      <div class="hold-type-buttons">
-        <button
-          v-for="type in holdTypes"
-          :key="type"
-          class="hold-type-button"
-          :class="{ active: currentHoldType === type }"
-          @click="currentHoldType = type"
+        <!-- Hold type indicator -->
+        <div
+          v-for="(indicator, index) in holdTypeIndicators"
+          :key="`indicator-${indicator.id}`"
+          class="hold-type-indicator"
+          :style="{
+            left: `${indicator.x}px`,
+            top: `${indicator.y}px`,
+          }"
         >
-          {{ type.charAt(0).toUpperCase() + type.slice(1) }}
-        </button>
+          {{ indicator.text }}
+        </div>
       </div>
+
+      <!-- Fullscreen button -->
+      <button
+        class="fullscreen-button"
+        @click="toggleFullscreen"
+        title="Toggle fullscreen"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            v-if="isFullscreen"
+            d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"
+          ></path>
+          <path v-else d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -123,9 +151,17 @@ const initialZoom = ref(1);
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const isPinching = ref(false);
+const isMoving = ref(false);
 const lastTouchTime = ref(0);
 const lastTapX = ref(0);
 const lastTapY = ref(0);
+const movementThreshold = 10; // Pixels of movement to consider as a pan/zoom
+
+// Fullscreen state
+const isFullscreen = ref(false);
+
+// Hold type indicators
+const holdTypeIndicators = ref([]);
 
 // Watch for changes in props
 watch(
@@ -157,6 +193,7 @@ const handleTouchStart = (event) => {
     // Single touch - prepare for panning
     touchStartX.value = event.touches[0].clientX;
     touchStartY.value = event.touches[0].clientY;
+    isMoving.value = false;
 
     // Check for double tap
     const now = new Date().getTime();
@@ -178,6 +215,7 @@ const handleTouchStart = (event) => {
   } else if (event.touches.length === 2) {
     // Pinch gesture - prepare for zooming
     isPinching.value = true;
+    isMoving.value = true;
     initialPinchDistance.value = getPinchDistance(event);
     initialZoom.value = zoom.value;
   }
@@ -192,6 +230,14 @@ const handleTouchMove = (event) => {
     // Calculate delta movement
     const deltaX = (touchX - touchStartX.value) / zoom.value;
     const deltaY = (touchY - touchStartY.value) / zoom.value;
+
+    // Check if we've moved enough to consider it a pan
+    if (
+      Math.abs(deltaX) > movementThreshold ||
+      Math.abs(deltaY) > movementThreshold
+    ) {
+      isMoving.value = true;
+    }
 
     // Update pan position
     panX.value += deltaX;
@@ -244,6 +290,10 @@ const handleTouchEnd = (event) => {
     // End pinching
     if (event.touches.length < 2) {
       isPinching.value = false;
+      // Keep isMoving true for a short time to prevent accidental hold selection
+      setTimeout(() => {
+        isMoving.value = false;
+      }, 300);
     }
 
     // Ensure we're not zoomed out too far
@@ -259,6 +309,11 @@ const handleTouchEnd = (event) => {
 
     // Prevent default only for pinch gestures
     event.preventDefault();
+  } else {
+    // For single touch, reset isMoving after a short delay
+    setTimeout(() => {
+      isMoving.value = false;
+    }, 300);
   }
 };
 
@@ -283,7 +338,7 @@ function updateDisplayHolds() {
   imageHeight.value = img.clientHeight;
 
   // Calculate default hold size based on image dimensions
-  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 5% of the image size
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 3% of the image size
 
   // Convert relative positions to pixel positions for display
   displayHolds.value = holds.value.map((hold) => ({
@@ -306,7 +361,7 @@ function initializeHolds() {
   imageHeight.value = img.clientHeight;
 
   // Calculate default hold size based on image dimensions
-  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 5% of the image size
+  defaultHoldSize.value = Math.min(imageWidth.value, imageHeight.value) * 0.03; // 3% of the image size
 
   // Store the original hold positions (relative coordinates)
   holds.value = [...props.holdPositions];
@@ -330,36 +385,86 @@ const selectedHoldType = (index) => {
   return hold ? `hold-${hold.type}` : "";
 };
 
-// Toggle hold selection
-const toggleHold = (index) => {
-  if (props.editMode) return;
-
-  // Don't toggle if we're in the middle of a pinch gesture
-  if (isPinching.value) return;
+// Cycle through hold types
+const cycleHoldType = (index, event) => {
+  if (props.editMode || isPinching.value || isMoving.value) return;
 
   let newSelectedHolds = [...props.selectedHolds];
-
   const existingIndex = newSelectedHolds.findIndex((h) => h.index === index);
+  const holdTypeOrder = [...holdTypes, null]; // Add null for "unselected" state
+
+  let nextTypeIndex = 0;
 
   if (existingIndex !== -1) {
-    // If already selected, update the type or remove if it's the same type
-    if (newSelectedHolds[existingIndex].type === currentHoldType.value) {
+    // Find current type in the order
+    const currentType = newSelectedHolds[existingIndex].type;
+    const currentTypeIndex = holdTypeOrder.findIndex(
+      (type) => type === currentType
+    );
+
+    // Get next type in the cycle
+    nextTypeIndex = (currentTypeIndex + 1) % holdTypeOrder.length;
+
+    if (holdTypeOrder[nextTypeIndex] === null) {
+      // Remove the hold if cycling to "unselected"
       newSelectedHolds.splice(existingIndex, 1);
+      showHoldTypeIndicator(index, "Unselected");
     } else {
-      newSelectedHolds[existingIndex].type = currentHoldType.value;
+      // Update to the next type
+      newSelectedHolds[existingIndex].type = holdTypeOrder[nextTypeIndex];
+      showHoldTypeIndicator(index, holdTypeOrder[nextTypeIndex]);
     }
   } else {
-    // Add new hold
+    // Add new hold with first type in the cycle (hand)
     newSelectedHolds.push({
       index,
-      type: currentHoldType.value,
+      type: holdTypeOrder[0],
     });
+    showHoldTypeIndicator(index, holdTypeOrder[0]);
   }
 
   // Force a small delay to ensure the DOM updates properly on mobile
   setTimeout(() => {
     emit("update:selectedHolds", newSelectedHolds);
   }, 10);
+};
+
+// Show hold type indicator
+const showHoldTypeIndicator = (index, type) => {
+  if (!displayHolds.value[index]) return;
+
+  const hold = displayHolds.value[index];
+  const displayText =
+    type === null || type === "unselected"
+      ? "unselected"
+      : type.charAt(0).toUpperCase() + type.slice(1);
+
+  // Limit the number of active indicators to improve performance
+  // Remove oldest indicators if we have too many
+  if (holdTypeIndicators.value.length >= 3) {
+    holdTypeIndicators.value.shift();
+  }
+
+  // Create new indicator with unique ID
+  const indicator = {
+    id: Date.now(), // Unique ID for this indicator
+    x: hold.pixelX,
+    y: hold.pixelY - 30, // Position above the hold
+    text: displayText,
+  };
+
+  // Add to indicators array
+  holdTypeIndicators.value.push(indicator);
+
+  // Remove indicator after 1 second (reduced from 1.5 seconds)
+  setTimeout(() => {
+    const index = holdTypeIndicators.value.findIndex(
+      (i) => i.id === indicator.id
+    );
+    if (index !== -1) {
+      holdTypeIndicators.value.splice(index, 1);
+    }
+  }, 500);
 };
 
 // Handle click on the image to add a new hold
@@ -422,6 +527,52 @@ const removeHold = (index) => {
   }
 };
 
+// Toggle fullscreen
+const toggleFullscreen = () => {
+  const container = sprayWallRef.value;
+
+  if (!document.fullscreenElement) {
+    // Enter fullscreen
+    if (container.requestFullscreen) {
+      container.requestFullscreen();
+    } else if (container.webkitRequestFullscreen) {
+      /* Safari */
+      container.webkitRequestFullscreen();
+    } else if (container.msRequestFullscreen) {
+      /* IE11 */
+      container.msRequestFullscreen();
+    }
+    isFullscreen.value = true;
+
+    // Reset zoom and pan when entering fullscreen
+    zoom.value = 1;
+    panX.value = 0;
+    panY.value = 0;
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      /* Safari */
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      /* IE11 */
+      document.msExitFullscreen();
+    }
+    isFullscreen.value = false;
+  }
+};
+
+// Listen for fullscreen change events
+const handleFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement;
+
+  // Reset zoom and pan when exiting fullscreen
+  if (!isFullscreen.value) {
+    resetZoom();
+  }
+};
+
 // Save hold positions
 const saveHoldPositions = () => {
   // Emit update event with relative positions
@@ -443,6 +594,19 @@ const cancelEdit = () => {
   emit("update:editMode", false);
 };
 
+// Handle mouse wheel for panning
+const handleWheel = (event) => {
+  // Only allow wheel panning in fullscreen mode
+  if (!isFullscreen.value) return;
+
+  // Prevent default scrolling behavior
+  event.preventDefault();
+
+  // Pan vertically with wheel
+  const scrollAmount = event.deltaY / zoom.value;
+  panY.value -= scrollAmount * 0.5; // Adjust sensitivity as needed
+};
+
 // Clean up event listeners
 onMounted(() => {
   // If the image is already loaded, initialize holds
@@ -450,11 +614,24 @@ onMounted(() => {
   if (img && img.complete) {
     initializeHolds();
   }
+
+  // Add fullscreen change event listener
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+  document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+  document.addEventListener("MSFullscreenChange", handleFullscreenChange);
 });
 
 // Clean up event listeners on unmount
 onUnmounted(() => {
   window.removeEventListener("resize", updateDisplayHolds);
+  document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  document.removeEventListener(
+    "webkitfullscreenchange",
+    handleFullscreenChange
+  );
+  document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+  document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
 });
 </script>
 
@@ -487,12 +664,34 @@ onUnmounted(() => {
     width: 100%;
     height: auto;
     cursor: default;
-    filter: saturate(0.2) contrast(1) blur(0.3px); /* Reduce saturation to 60% and slightly increase contrast */
+    filter: saturate(0.2) brightness(0.9) blur(0.1px); /* Reduce saturation to 60% and slightly increase contrast */
 
     &:hover {
       cursor: pointer;
     }
   }
+}
+
+/* Add fullscreen specific styles */
+:fullscreen .spray-wall,
+:-webkit-full-screen .spray-wall,
+:-moz-full-screen .spray-wall,
+:-ms-fullscreen .spray-wall {
+  height: 100vh;
+  overflow: auto;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:fullscreen .spray-wall-content,
+:-webkit-full-screen .spray-wall-content,
+:-moz-full-screen .spray-wall-content,
+:-ms-fullscreen .spray-wall-content {
+  height: auto;
+  max-height: 100vh;
+  overflow: visible;
 }
 
 .hold {
@@ -556,43 +755,44 @@ onUnmounted(() => {
   }
 }
 
-.hold-type-selector {
-  padding: 1rem;
-  background-color: white;
-  width: 100%;
+.hold-type-indicator {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+}
 
-  .hold-type-title {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
+.fullscreen-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.2s;
+  padding: 0; /* Remove padding to allow icon to fill the button */
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.7);
   }
 
-  .hold-type-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-
-    .hold-type-button {
-      flex: 1;
-      min-width: 70px;
-
-      &.active {
-        &[class*="start"] {
-          background-color: #4caf50;
-        }
-
-        &[class*="hand"] {
-          background-color: #2196f3;
-        }
-
-        &[class*="feet"] {
-          background-color: #ff9800;
-        }
-
-        &[class*="top"] {
-          background-color: #e91e63;
-        }
-      }
-    }
+  svg {
+    width: 25px;
+    height: 25px;
   }
 }
 
@@ -640,10 +840,19 @@ onUnmounted(() => {
     }
   }
 
-  .hold-type-buttons {
-    .hold-type-button {
-      padding: 0.75rem 0.5rem;
+  .fullscreen-button {
+    width: 30px;
+    height: 30px;
+
+    svg {
+      width: 15px;
+      height: 15px;
     }
+  }
+
+  .hold-type-indicator {
+    font-size: 10px;
+    padding: 3px 6px;
   }
 }
 </style>
