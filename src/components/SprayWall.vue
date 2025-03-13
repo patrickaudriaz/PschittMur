@@ -152,9 +152,6 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const isPinching = ref(false);
 const isMoving = ref(false);
-const lastTouchTime = ref(0);
-const lastTapX = ref(0);
-const lastTapY = ref(0);
 const movementThreshold = 10; // Pixels of movement to consider as a pan/zoom
 
 // Fullscreen state
@@ -194,24 +191,6 @@ const handleTouchStart = (event) => {
     touchStartX.value = event.touches[0].clientX;
     touchStartY.value = event.touches[0].clientY;
     isMoving.value = false;
-
-    // Check for double tap
-    const now = new Date().getTime();
-    const timeDiff = now - lastTouchTime.value;
-    const x = event.touches[0].clientX;
-    const y = event.touches[0].clientY;
-    const distance = Math.sqrt(
-      Math.pow(x - lastTapX.value, 2) + Math.pow(y - lastTapY.value, 2)
-    );
-
-    if (timeDiff < 300 && distance < 30) {
-      // Double tap detected - reset zoom
-      resetZoom();
-    }
-
-    lastTouchTime.value = now;
-    lastTapX.value = x;
-    lastTapY.value = y;
   } else if (event.touches.length === 2) {
     // Pinch gesture - prepare for zooming
     isPinching.value = true;
@@ -445,11 +424,14 @@ const showHoldTypeIndicator = (index, type) => {
     holdTypeIndicators.value.shift();
   }
 
+  // Check if we're on mobile (using a simple width check)
+  const isMobile = window.innerWidth <= 768;
+
   // Create new indicator with unique ID
   const indicator = {
     id: Date.now(), // Unique ID for this indicator
     x: hold.pixelX,
-    y: hold.pixelY - 30, // Position above the hold
+    y: hold.pixelY - (isMobile ? 25 : 30), // Position closer on mobile
     text: displayText,
   };
 
@@ -757,12 +739,20 @@ onUnmounted(() => {
 
 .hold-type-indicator {
   position: absolute;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(
+    0,
+    0,
+    0,
+    0.8
+  ); /* Darker background for better visibility */
   color: white;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 4px;
-  font-size: 12px;
-  transform: translate(-50%, -50%);
+  font-size: 10px;
+  transform: translate(
+    -50%,
+    0
+  ); /* Adjust transform to be directly above hold */
   pointer-events: none;
   z-index: 10;
   white-space: nowrap;
@@ -851,8 +841,8 @@ onUnmounted(() => {
   }
 
   .hold-type-indicator {
-    font-size: 10px;
-    padding: 3px 6px;
+    font-size: 8px;
+    padding: 2px 4px;
   }
 }
 </style>
